@@ -20,5 +20,5 @@ from speechanalyser .views import upload_and_transcribe
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('transcribe/', upload_and_transcribe, name='upload_and_transcribe'),
+    path('transcribe', upload_and_transcribe, name='upload_and_transcribe'),
 ]
