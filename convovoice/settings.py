@@ -11,9 +11,15 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+import environ
+
 import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+OPENAI_API_KEY = env("OPENAI_API_KEY")
+
 
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 
@@ -61,6 +67,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:8000",
     "http://127.0.0.1:3000",
+    "https://convovoice-frontend.vercel.app",
 ]
 
 ROOT_URLCONF = 'convovoice.urls'
@@ -93,6 +100,9 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# settings.py
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 
 # Password validation

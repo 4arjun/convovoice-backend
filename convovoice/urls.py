@@ -17,8 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from speechanalyser .views import upload_and_transcribe
+from speechanalyser .views import chat_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('transcribe', upload_and_transcribe, name='upload_and_transcribe'),
+    path('chat', chat_view, name='chat'),
+
 ]
