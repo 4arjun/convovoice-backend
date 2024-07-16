@@ -8,13 +8,30 @@ import io
 from openai import OpenAI
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
+from .models import Conversation
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import generics, permissions
+from .serializers import ConversationSerializer
 
 # Initialize OpenAI client
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
+class ConversationListCreate(generics.ListCreateAPIView):
+    serializer_class = ConversationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Conversation.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 @csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def transcribe_and_respond(request):
     if request.method == 'POST':
         audio_file = request.FILES.get('audio')
@@ -43,36 +60,49 @@ def transcribe_and_respond(request):
         # Prepare transcription request
         audio_uri = f'gs://convovoice/{file_name}'
         client_speech = speech.SpeechClient()
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=16000,
-            language_code='en-US'
+
+        # Asynchronous transcription configuration
+        operation = client_speech.long_running_recognize(
+            config=speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=16000,
+                language_code='en-US'
+            ),
+            audio=speech.RecognitionAudio(uri=audio_uri)
         )
-        audio = speech.RecognitionAudio(uri=audio_uri)
 
-        try:
-            response = client_speech.recognize(config=config, audio=audio)
-            transcripts = [result.alternatives[0].transcript for result in response.results]
-            if transcripts:
-                user_message = transcripts[0]
+        # Wait for the operation to complete
+        response = operation.result()
 
-                # Interact with the OpenAI API
-                gpt_response = client.chat.completions.create(model="gpt-3.5-turbo",  # or "gpt-4" if you have access
-                messages=[
-                    {"role": "system", "content": "You are a friendly and supportive companion."},
-                    {"role": "user", "content": user_message}
-                ])
+        # Process the transcription results
+        transcripts = [result.alternatives[0].transcript for result in response.results]
+        if transcripts:
+            user_message = ' '.join(transcripts)
 
-                # Extract the assistant's response
-                assistant_message = gpt_response.choices[0].message.content
+            # Retrieve conversation history from database
+            history = Conversation.objects.filter(user=request.user).order_by('timestamp')
+            history_messages = [{"role": "user", "content": convo.user_message} for convo in history] + \
+                               [{"role": "assistant", "content": convo.assistant_message} for convo in history]
 
-                # Return the response as JSON
-                return JsonResponse({"user_message": user_message, "assistant_message": assistant_message})
+            # Append user message to conversation history
+            history_messages.append({"role": "user", "content": user_message})
 
-            return JsonResponse({"message": "No transcripts available"}, status=400)
+            # Interact with the OpenAI API with a system message to set a friendly tone
+            gpt_response = client.chat.completions.create(model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "You are a friendly and supportive companion."}
+            ] + history_messages)
 
-        except Exception as e:
-            logger.error(f'Error during transcription or OpenAI interaction: {e}')
-            return JsonResponse({'error': 'Error during transcription or OpenAI interaction'}, status=500)
+            # Extract the assistant's response
+            assistant_message = gpt_response.choices[0].message.content
+
+            # Save conversation to database
+            Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
+
+            # Return the response as JSON
+            return JsonResponse({"user_message": user_message, "assistant_message": assistant_message})
+
+        return JsonResponse({"message": "No transcripts available"}, status=400)
+
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
