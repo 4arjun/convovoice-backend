@@ -5,6 +5,8 @@ from pydub import AudioSegment
 import logging
 import io
 import requests
+import base64
+from google.cloud import texttospeech
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, permissions
@@ -54,7 +56,7 @@ def transcribe_and_respond(request):
                 'file': ('audio-file.wav', converted_audio, 'audio/wav')
             }
             data = {
-                'model': 'whisper-1', # Ensure you specify the correct model
+                'model': 'whisper-1',  # Ensure you specify the correct model
                 'language': 'en'   
             }
             response = requests.post(
@@ -90,7 +92,7 @@ def transcribe_and_respond(request):
                             'Content-Type': 'application/json'
                         },
                         json={
-                            'model': 'gpt-3.5-turbo',
+                            'model': 'gpt-4o-mini',
                             'messages': [
                                 {"role": "system", "content": "You are a friendly and supportive companion."}
                             ] + history_messages
@@ -100,11 +102,36 @@ def transcribe_and_respond(request):
                     # Extract the assistant's response
                     assistant_message = gpt_response['choices'][0]['message']['content']
 
+                    # Google Cloud Text-to-Speech
+                    client = texttospeech.TextToSpeechClient()
+                    synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
+
+                    voice = texttospeech.VoiceSelectionParams(
+                        language_code='en-US',
+                        name='en-US-Journey-F',  # Use the specific voice name
+                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE  # Set the appropriate gender
+                    )
+
+                    audio_config = texttospeech.AudioConfig(
+                        audio_encoding=texttospeech.AudioEncoding.MP3
+                    )
+
+                    response_tts = client.synthesize_speech(
+                        input=synthesis_input, voice=voice, audio_config=audio_config
+                    )
+
+                    # Encode the audio content to base64 to send it back to the frontend
+                    audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+
                     # Save conversation to database
                     Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
 
                     # Return the response as JSON
-                    return JsonResponse({"user_message": user_message, "assistant_message": assistant_message})
+                    return JsonResponse({
+                        "user_message": user_message,
+                        "assistant_message": assistant_message,
+                        "audio_content": audio_content
+                    })
 
             else:
                 # Log any issues with the API request
