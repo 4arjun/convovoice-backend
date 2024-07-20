@@ -1,7 +1,6 @@
 from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-from pydub import AudioSegment
 import logging
 import io
 import requests
@@ -36,24 +35,15 @@ def transcribe_and_respond(request):
             return JsonResponse({'error': 'No audio file provided'}, status=400)
 
         try:
-            # Convert audio to WAV format with a sample rate of 16000 Hz
+            # Read audio file directly (assuming it's in WAV format)
             audio_content = audio_file.read()
-            audio = AudioSegment.from_file(io.BytesIO(audio_content))
-            audio = audio.set_frame_rate(16000)
-            audio = audio.set_channels(1)
-            audio = audio.set_sample_width(2)
-
-            # Save the converted audio to a BytesIO object
-            converted_audio = io.BytesIO()
-            audio.export(converted_audio, format='wav')
-            converted_audio.seek(0)
 
             # Prepare to send audio data to OpenAI Whisper
             headers = {
                 'Authorization': f'Bearer {settings.OPENAI_API_KEY}'
             }
             files = {
-                'file': ('audio-file.wav', converted_audio, 'audio/wav')
+                'file': ('audio-file.wav', io.BytesIO(audio_content), 'audio/wav')
             }
             data = {
                 'model': 'whisper-1',  # Ensure you specify the correct model
@@ -94,7 +84,7 @@ def transcribe_and_respond(request):
                         json={
                             'model': 'gpt-4o-mini',
                             'messages': [
-                                {"role": "system", "content": "You are a helpful real person who helps the user have a continuous conversation and correct their mistakes in their sentences."}
+                                {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."}
                             ] + history_messages
                         }
                     ).json()
