@@ -94,7 +94,7 @@ def transcribe_and_respond(request):
                         json={
                             'model': 'gpt-4o-mini',
                             'messages': [
-                                {"role": "system", "content": "You are a friendly and supportive companion."}
+                                {"role": "system", "content": "You are a helpful real person who helps the user have a continuous conversation and correct their mistakes in their sentences."}
                             ] + history_messages
                         }
                     ).json()
