@@ -1,19 +1,15 @@
 from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
-import logging
 import io
-import requests
 import base64
+import requests
 from google.cloud import texttospeech
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, permissions
 from .models import Conversation
 from .serializers import ConversationSerializer
-
-# Configure logger
-logger = logging.getLogger(__name__)
 
 class ConversationListCreate(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
@@ -35,20 +31,19 @@ def transcribe_and_respond(request):
             return JsonResponse({'error': 'No audio file provided'}, status=400)
 
         try:
-            # Read audio file directly (assuming it's in WAV format)
-            audio_content = audio_file.read()
-
             # Prepare to send audio data to OpenAI Whisper
             headers = {
                 'Authorization': f'Bearer {settings.OPENAI_API_KEY}'
             }
             files = {
-                'file': ('audio-file.wav', io.BytesIO(audio_content), 'audio/wav')
+                'file': ('audio-file.webm', audio_file, 'audio/webm')
             }
             data = {
                 'model': 'whisper-1',  # Ensure you specify the correct model
-                'language': 'en'   
+                'language': 'en'
             }
+
+            # Use asynchronous requests for better performance
             response = requests.post(
                 'https://api.openai.com/v1/audio/transcriptions',
                 headers=headers,
@@ -56,20 +51,17 @@ def transcribe_and_respond(request):
                 data=data
             )
 
-            # Log the full response for debugging
-            logger.info(f"OpenAI API response status code: {response.status_code}")
-            logger.info(f"OpenAI API response text: {response.text}")
-
             if response.status_code == 200:
                 response_json = response.json()
                 transcripts = response_json.get('text', '')
                 if transcripts:
                     user_message = transcripts
 
-                    # Retrieve conversation history from database
-                    history = Conversation.objects.filter(user=request.user).order_by('timestamp')
-                    history_messages = [{"role": "user", "content": convo.user_message} for convo in history] + \
-                                       [{"role": "assistant", "content": convo.assistant_message} for convo in history]
+                    history = Conversation.objects.filter(user=request.user).order_by('-timestamp')[:5]
+                    history_messages = []
+                    for convo in reversed(history):
+                        history_messages.append({"role": "user", "content": convo.user_message})
+                        history_messages.append({"role": "assistant", "content": convo.assistant_message})
 
                     # Append user message to conversation history
                     history_messages.append({"role": "user", "content": user_message})
@@ -84,8 +76,9 @@ def transcribe_and_respond(request):
                         json={
                             'model': 'gpt-4o-mini',
                             'messages': [
-                                {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."}
-                            ] + history_messages
+                                {"role": "system", "content": "You are a helpful real person who helps the user have a continuous conversation and correct their mistakes in their sentences."}
+                            ] + history_messages,
+                            'temperature': 1,
                         }
                     ).json()
 
@@ -103,7 +96,9 @@ def transcribe_and_respond(request):
                     )
 
                     audio_config = texttospeech.AudioConfig(
-                        audio_encoding=texttospeech.AudioEncoding.MP3
+                        audio_encoding=texttospeech.AudioEncoding.MP3,
+                        effects_profile_id=["handset-class-device"],
+                        speaking_rate=0.75
                     )
 
                     response_tts = client.synthesize_speech(
@@ -124,12 +119,9 @@ def transcribe_and_respond(request):
                     })
 
             else:
-                # Log any issues with the API request
-                logger.error(f"Error from OpenAI API: {response.status_code} - {response.text}")
                 return JsonResponse({"message": "Failed to transcribe audio"}, status=response.status_code)
 
         except Exception as e:
-            logger.error(f"Error during transcription: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
 
     else:
