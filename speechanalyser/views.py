@@ -57,11 +57,9 @@ def transcribe_and_respond(request):
                 if transcripts:
                     user_message = transcripts
 
-                    history = Conversation.objects.filter(user=request.user).order_by('-timestamp')[:5]
-                    history_messages = []
-                    for convo in reversed(history):
-                        history_messages.append({"role": "user", "content": convo.user_message})
-                        history_messages.append({"role": "assistant", "content": convo.assistant_message})
+                    history = Conversation.objects.filter(user=request.user).order_by('timestamp')
+                    history_messages = [{"role": "user", "content": convo.user_message} for convo in history] + \
+                                       [{"role": "assistant", "content": convo.assistant_message} for convo in history]
 
                     # Append user message to conversation history
                     history_messages.append({"role": "user", "content": user_message})
@@ -76,7 +74,8 @@ def transcribe_and_respond(request):
                         json={
                             'model': 'gpt-4o-mini',
                             'messages': [
-                                {"role": "system", "content": "You are a helpful real person who helps the user have a continuous conversation and correct their mistakes in their sentences."}
+                                {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."
+                        }
                             ] + history_messages,
                             'temperature': 1,
                         }
