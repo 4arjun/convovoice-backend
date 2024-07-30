@@ -77,7 +77,7 @@ def transcribe_and_respond(request):
                                 {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."
                         }
                             ] + history_messages,
-                            'temperature': 1,
+                            'temperature': 1.3,
                         }
                     ).json()
 
@@ -95,9 +95,8 @@ def transcribe_and_respond(request):
                     )
 
                     audio_config = texttospeech.AudioConfig(
-                        audio_encoding=texttospeech.AudioEncoding.MP3,
-                        effects_profile_id=["handset-class-device"],
-                        speaking_rate=0.75
+                    audio_encoding = texttospeech.AudioEncoding.MP3,
+                    speaking_rate = 3.7,
                     )
 
                     response_tts = client.synthesize_speech(
