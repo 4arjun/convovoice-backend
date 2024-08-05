@@ -10,6 +10,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import generics, permissions
 from .models import Conversation
 from .serializers import ConversationSerializer
+from openai import OpenAI
+
+
 
 class ConversationListCreate(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
@@ -77,7 +80,6 @@ def transcribe_and_respond(request):
                                 {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."
                         }
                             ] + history_messages,
-                            'temperature': 1.3,
                         }
                     ).json()
 
@@ -85,6 +87,7 @@ def transcribe_and_respond(request):
                     assistant_message = gpt_response['choices'][0]['message']['content']
 
                     # Google Cloud Text-to-Speech
+                    '''
                     client = texttospeech.TextToSpeechClient()
                     synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
 
@@ -102,9 +105,17 @@ def transcribe_and_respond(request):
                     response_tts = client.synthesize_speech(
                         input=synthesis_input, voice=voice, audio_config=audio_config
                     )
-
+                    '''
                     # Encode the audio content to base64 to send it back to the frontend
-                    audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+                    #audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+                  #  client = OpenAI()
+                   # response = client.audio.speech.create(
+                  #  model="tts-1",
+                  #  voice="nova",
+                  #  input=assistant_message,
+                  #  )
+                  #  audio_content = response.content  # or another method to access the raw bytes
+                   # encoded_audio_content = base64.b64encode(audio_content).decode('utf-8')
 
                     # Save conversation to database
                     Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
@@ -113,9 +124,8 @@ def transcribe_and_respond(request):
                     return JsonResponse({
                         "user_message": user_message,
                         "assistant_message": assistant_message,
-                        "audio_content": audio_content
+                        #"audio_content": encoded_audio_content
                     })
-
             else:
                 return JsonResponse({"message": "Failed to transcribe audio"}, status=response.status_code)
 
