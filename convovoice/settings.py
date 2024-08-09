@@ -23,11 +23,10 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-OPENAI_API_KEY = env("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-HUGGING_FACE_API_TOKEN = os.getenv('HUGGING_FACE_API_TOKEN')
 
 
 
@@ -37,12 +36,11 @@ SECRET_KEY = 'kjrganobnraorawrbhawinbvilwbirygq848toq4yt4go'
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-s(-$(fy-nn49jdgv=l$l8j1vy2_$ge*as#9!y8z=b6x(04fuz#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -76,10 +74,6 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:8000",
-    "http://127.0.0.1:3000",
-    "https://convovoice-frontend.vercel.app",
 ]
 
 
@@ -148,13 +142,7 @@ DATABASES = {
     }
 }
 
-# settings.py
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-# Session cookie settings
-SESSION_COOKIE_NAME = 'sessionid'
-SESSION_COOKIE_AGE = 1209600  # 2 weeks
-SESSION_SAVE_EVERY_REQUEST = True
 
 
 
@@ -192,7 +180,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
