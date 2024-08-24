@@ -34,7 +34,6 @@ def transcribe_and_respond(request):
             return JsonResponse({'error': 'No audio file provided'}, status=400)
 
         try:
-            # Prepare to send audio data to OpenAI Whisper
             headers = {
                 'Authorization': f'Bearer {settings.OPENAI_API_KEY}'
             }
@@ -42,11 +41,10 @@ def transcribe_and_respond(request):
                 'file': ('audio-file.webm', audio_file, 'audio/webm')
             }
             data = {
-                'model': 'whisper-1',  # Ensure you specify the correct model
+                'model': 'whisper-1',  
                 'language': 'en'
             }
 
-            # Use asynchronous requests for better performance
             response = requests.post(
                 'https://api.openai.com/v1/audio/transcriptions',
                 headers=headers,
@@ -64,10 +62,8 @@ def transcribe_and_respond(request):
                     history_messages = [{"role": "user", "content": convo.user_message} for convo in history] + \
                                        [{"role": "assistant", "content": convo.assistant_message} for convo in history]
 
-                    # Append user message to conversation history
                     history_messages.append({"role": "user", "content": user_message})
 
-                    # Interact with the OpenAI API with a system message to set a friendly tone
                     gpt_response = requests.post(
                         'https://api.openai.com/v1/chat/completions',
                         headers={
@@ -83,31 +79,29 @@ def transcribe_and_respond(request):
                         }
                     ).json()
 
-                    # Extract the assistant's response
                     assistant_message = gpt_response['choices'][0]['message']['content']
 
                     # Google Cloud Text-to-Speech
-                    '''
+                    
                     client = texttospeech.TextToSpeechClient()
                     synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
 
                     voice = texttospeech.VoiceSelectionParams(
                         language_code='en-US',
-                        name='en-US-Journey-F',  # Use the specific voice name
-                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE  # Set the appropriate gender
+                        name='en-US-Journey-F',  
+                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE  
                     )
 
                     audio_config = texttospeech.AudioConfig(
                     audio_encoding = texttospeech.AudioEncoding.MP3,
-                    speaking_rate = 3.7,
                     )
 
                     response_tts = client.synthesize_speech(
                         input=synthesis_input, voice=voice, audio_config=audio_config
                     )
-                    '''
+                    
                     # Encode the audio content to base64 to send it back to the frontend
-                    #audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+                    audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
                   #  client = OpenAI()
                    # response = client.audio.speech.create(
                   #  model="tts-1",
@@ -117,14 +111,12 @@ def transcribe_and_respond(request):
                   #  audio_content = response.content  # or another method to access the raw bytes
                    # encoded_audio_content = base64.b64encode(audio_content).decode('utf-8')
 
-                    # Save conversation to database
                     Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
 
-                    # Return the response as JSON
                     return JsonResponse({
                         "user_message": user_message,
                         "assistant_message": assistant_message,
-                        #"audio_content": encoded_audio_content
+                        "audio_content": audio_content
                     })
             else:
                 return JsonResponse({"message": "Failed to transcribe audio"}, status=response.status_code)
