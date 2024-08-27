@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -5,18 +6,17 @@ import io
 import base64
 import requests
 from google.cloud import texttospeech
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import generics, permissions
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework import generics
 from .models import Conversation
 from .serializers import ConversationSerializer
-from openai import OpenAI
-
-
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class ConversationListCreate(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Conversation.objects.filter(user=self.request.user)
@@ -26,6 +26,7 @@ class ConversationListCreate(generics.ListCreateAPIView):
 
 @csrf_exempt
 @api_view(['POST'])
+@authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def transcribe_and_respond(request):
     if request.method == 'POST':
@@ -82,7 +83,6 @@ def transcribe_and_respond(request):
                     assistant_message = gpt_response['choices'][0]['message']['content']
 
                     # Google Cloud Text-to-Speech
-                    
                     client = texttospeech.TextToSpeechClient()
                     synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
 
@@ -93,7 +93,7 @@ def transcribe_and_respond(request):
                     )
 
                     audio_config = texttospeech.AudioConfig(
-                    audio_encoding = texttospeech.AudioEncoding.MP3,
+                        audio_encoding=texttospeech.AudioEncoding.MP3,
                     )
 
                     response_tts = client.synthesize_speech(
@@ -102,14 +102,6 @@ def transcribe_and_respond(request):
                     
                     # Encode the audio content to base64 to send it back to the frontend
                     audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
-                  #  client = OpenAI()
-                   # response = client.audio.speech.create(
-                  #  model="tts-1",
-                  #  voice="nova",
-                  #  input=assistant_message,
-                  #  )
-                  #  audio_content = response.content  # or another method to access the raw bytes
-                   # encoded_audio_content = base64.b64encode(audio_content).decode('utf-8')
 
                     Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
 

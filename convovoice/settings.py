@@ -53,12 +53,10 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'speechanalyser',
-    'myapp',
     'corsheaders',
     'rest_framework',
-    'rest_framework.authtoken',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
+    
 
 ]
 
