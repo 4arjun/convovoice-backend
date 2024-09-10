@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from speechanalyser .views import transcribe_and_respond
+from speechanalyser .views import transcribe_and_respond, register_user
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -28,4 +28,5 @@ urlpatterns = [
     path('api/chat/', include('speechanalyser.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/register/',register_user,name='register_user')
 ]

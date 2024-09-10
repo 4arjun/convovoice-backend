@@ -12,6 +12,8 @@ from .models import Conversation
 from .serializers import ConversationSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework import status
+from rest_framework.response import Response
 
 class ConversationListCreate(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
@@ -23,6 +25,22 @@ class ConversationListCreate(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+@csrf_exempt
+@api_view(['POST'])
+def register_user(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    if not username or not password:
+        return Response({"error": "Username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    if User.objects.filter(username=username).exists():
+        return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = User.objects.create_user(username=username, password=password)
+    user.save()
+    return Response({"message": "User created successfully."}, status=status.HTTP_201_CREATED)
 
 @csrf_exempt
 @api_view(['POST'])
@@ -73,11 +91,29 @@ def transcribe_and_respond(request):
                         },
                         json={
                             'model': 'gpt-4o-mini',
-                            'messages': [
-                                {"role": "system", "content": "You are my girlfriend, providing girlfriend kind responses. Handle personal questions with realistic answers. If asked your name, respond with 'Eva'. For questions about your home, say some place in USA. For other personal questions, provide friendly yet specific answers."
+                            "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are an energy expert assistant. Handle queries related to energy consumption, peak power occurrences, and other energy-related details with technical and precise answers. Use the provided data to answer questions."
+                        },
+                        {
+                            "role": "user",
+                            "content": "What time did the peak power occur?"
+                        },
+                        {
+                            "role": "assistant",
+                            "content": "The peak power occurred at 3:00 PM with a maximum load of 5.2 MW."
+                        },
+                        {
+                            "role": "user",
+                            "content": "What was the total energy consumption.?"
+                        },
+                        {
+                            "role": "assistant",
+                            "content": "The total energy consumption for today was 6 MWh."
                         }
-                            ] + history_messages,
-                        }
+                    ] + history_messages,
+                                        }
                     ).json()
 
                     assistant_message = gpt_response['choices'][0]['message']['content']
@@ -118,3 +154,5 @@ def transcribe_and_respond(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+    
+
