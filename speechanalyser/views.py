@@ -14,6 +14,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import status
 from rest_framework.response import Response
+from openai import OpenAI
+
 
 class ConversationListCreate(generics.ListCreateAPIView):
     serializer_class = ConversationSerializer
@@ -94,57 +96,52 @@ def transcribe_and_respond(request):
                             "messages": [
                         {
                             "role": "system",
-                            "content": "You are an energy expert assistant. Handle queries related to energy consumption, peak power occurrences, and other energy-related details with technical and precise answers. Use the provided data to answer questions."
+                            "content": "You are a helpful assistant dedicated to helping me improve my English fluency and advance my language skills. Focus on providing responses that use nuanced grammar, advanced vocabulary, and conversational English expressions."
                         },
-                        {
-                            "role": "user",
-                            "content": "What time did the peak power occur?"
-                        },
-                        {
-                            "role": "assistant",
-                            "content": "The peak power occurred at 3:00 PM with a maximum load of 5.2 MW."
-                        },
-                        {
-                            "role": "user",
-                            "content": "What was the total energy consumption.?"
-                        },
-                        {
-                            "role": "assistant",
-                            "content": "The total energy consumption for today was 6 MWh."
-                        }
+                  
                     ] + history_messages,
                                         }
                     ).json()
 
                     assistant_message = gpt_response['choices'][0]['message']['content']
 
-                    # Google Cloud Text-to-Speech
-                    client = texttospeech.TextToSpeechClient()
-                    synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
+                    # json_key_path = '/Users/arjun/Desktop/djangotest/convovoice/convovoice-428809-9262ecfe894e.json' 
 
-                    voice = texttospeech.VoiceSelectionParams(
-                        language_code='en-US',
-                        name='en-US-Journey-F',  
-                        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE  
-                    )
+                    # # Google Cloud Text-to-Speech
+                    # client = texttospeech.TextToSpeechClient.from_service_account_json(json_key_path)
 
-                    audio_config = texttospeech.AudioConfig(
-                        audio_encoding=texttospeech.AudioEncoding.MP3,
-                    )
+                    # synthesis_input = texttospeech.SynthesisInput(text=assistant_message)
 
-                    response_tts = client.synthesize_speech(
-                        input=synthesis_input, voice=voice, audio_config=audio_config
-                    )
+                    # voice = texttospeech.VoiceSelectionParams(
+                    #     language_code='en-US',
+                    #     name='en-US-Journey-F',  
+                    # )
+
+                    # audio_config = texttospeech.AudioConfig(
+                    #     audio_encoding=texttospeech.AudioEncoding.MP3,
+                    # )
+
+                    # response_tts = client.synthesize_speech(
+                    #     input=synthesis_input, voice=voice, audio_config=audio_config
+                    # )
                     
-                    # Encode the audio content to base64 to send it back to the frontend
-                    audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+                    # # Encode the audio content to base64 to send it back to the frontend
+                    # audio_content = base64.b64encode(response_tts.audio_content).decode('utf-8')
+                    client = OpenAI()
+                    response = client.audio.speech.create(
+                    model="tts-1",
+                    voice="nova",
+                    input=assistant_message,
+                   )
+                    audio_content = response.content  # or another method to access the raw bytes
+                    encoded_audio_content = base64.b64encode(audio_content).decode('utf-8')
 
                     Conversation.objects.create(user=request.user, user_message=user_message, assistant_message=assistant_message)
 
                     return JsonResponse({
                         "user_message": user_message,
                         "assistant_message": assistant_message,
-                        "audio_content": audio_content
+                        "audio_content": encoded_audio_content
                     })
             else:
                 return JsonResponse({"message": "Failed to transcribe audio"}, status=response.status_code)
